@@ -1,0 +1,133 @@
+generator client {
+    provider = "prisma-client-js"
+    binaryTargets = ["native", "linux-musl-arm64-openssl-3.0.x"]
+    output = "/home/ubuntu/whatsapp_lead_bot/nextjs_space/node_modules/.prisma/client"
+}
+
+datasource db {
+    provider = "postgresql"
+    url      = env("DATABASE_URL")
+}
+
+model User {
+  id            String    @id @default(cuid())
+  name          String?
+  email         String    @unique
+  emailVerified DateTime?
+  image         String?
+  password      String?
+  accounts      Account[]
+  sessions      Session[]
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+}
+
+model Account {
+  userId            String
+  type              String
+  provider          String
+  providerAccountId String
+  refresh_token     String?
+  access_token      String?
+  expires_at        Int?
+  token_type        String?
+  scope             String?
+  id_token          String?
+  session_state     String?
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+  user              User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@id([provider, providerAccountId])
+}
+
+model Session {
+  sessionToken String   @unique
+  userId       String
+  expires      DateTime
+  user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+}
+
+model VerificationToken {
+  identifier String
+  token      String
+  expires    DateTime
+
+  @@id([identifier, token])
+}
+
+model Lead {
+  id              String         @id @default(cuid())
+  name            String
+  phone           String         @unique
+  notes           String?
+  whatsappStatus  String         @default("unknown")
+  lastContactedAt DateTime?
+  createdAt       DateTime       @default(now())
+  updatedAt       DateTime       @updatedAt
+  campaignLeads   CampaignLead[]
+  messageLogs     MessageLog[]
+
+  @@index([whatsappStatus])
+  @@index([createdAt])
+}
+
+model Template {
+  id        String     @id @default(cuid())
+  name      String
+  content   String
+  createdAt DateTime   @default(now())
+  updatedAt DateTime   @updatedAt
+  campaigns Campaign[]
+}
+
+model Campaign {
+  id            String         @id @default(cuid())
+  name          String
+  templateId    String
+  template      Template       @relation(fields: [templateId], references: [id])
+  dailyLimit    Int            @default(100)
+  status        String         @default("draft")
+  startDate     DateTime       @default(now())
+  createdAt     DateTime       @default(now())
+  updatedAt     DateTime       @updatedAt
+  campaignLeads CampaignLead[]
+  messageLogs   MessageLog[]
+
+  @@index([status])
+}
+
+model CampaignLead {
+  id         String    @id @default(cuid())
+  campaignId String
+  campaign   Campaign  @relation(fields: [campaignId], references: [id], onDelete: Cascade)
+  leadId     String
+  lead       Lead      @relation(fields: [leadId], references: [id], onDelete: Cascade)
+  status     String    @default("pending")
+  sentAt     DateTime?
+  error      String?
+  createdAt  DateTime  @default(now())
+
+  @@unique([campaignId, leadId])
+  @@index([campaignId, status])
+}
+
+model MessageLog {
+  id             String   @id @default(cuid())
+  campaignId     String?
+  campaign       Campaign? @relation(fields: [campaignId], references: [id], onDelete: SetNull)
+  leadId         String?
+  lead           Lead?    @relation(fields: [leadId], references: [id], onDelete: SetNull)
+  phone          String
+  messageContent String
+  status         String
+  errorCode      String?
+  errorMessage   String?
+  sentAt         DateTime @default(now())
+
+  @@index([campaignId])
+  @@index([sentAt])
+  @@index([status])
+}
